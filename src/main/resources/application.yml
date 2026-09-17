@@ -1,0 +1,39 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ms-campuslab-notify
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:54.234.173.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # Ack/nack explicitos en cada listener (ver EmailNotificationListener,
+        # PreparationTicketListener, VoucherGenerationListener), en vez de
+        # que Spring AMQP confirme automaticamente al terminar el metodo.
+        acknowledge-mode: manual
+        # Un mensaje que falla se reintenta unas pocas veces en este mismo
+        # consumer antes de descartarse a la DLQ (via basicNack con
+        # requeue=false en el catch de cada listener); retry aqui es sobre
+        # errores de conexion/infra, no sobre la logica de negocio.
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.campuslab.notify: INFO
