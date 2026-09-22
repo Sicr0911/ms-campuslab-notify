@@ -8,8 +8,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:54.234.173.1}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin_dev}
     listener:
       simple:
         # Ack/nack explicitos en cada listener (ver EmailNotificationListener,
