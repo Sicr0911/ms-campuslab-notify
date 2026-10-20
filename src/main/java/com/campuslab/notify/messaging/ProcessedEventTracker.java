@@ -28,4 +28,12 @@ public class ProcessedEventTracker {
     public boolean marcarComoProcesadoSiEsNuevo(String eventId) {
         return eventosProcesados.add(eventId);
     }
+
+    /**
+     * Revierte la marca cuando el procesamiento fallo, para que una
+     * reentrega de RabbitMQ no se descarte como duplicada.
+     */
+    public void olvidar(String eventId) {
+        eventosProcesados.remove(eventId);
+    }
 }
