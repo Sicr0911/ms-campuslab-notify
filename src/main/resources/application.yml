@@ -25,6 +25,33 @@ spring:
           max-attempts: 3
           initial-interval: 1000
 
+# Nombres de toda la topologia RabbitMQ de este servicio (ver
+# NotifyRabbitProperties / RabbitMqConfig). Deben coincidir con lo que
+# publica ms-campuslab-bookings (ReservaEventPublisher) y con
+# infra/mq/definitions.json.
+campuslab:
+  rabbitmq:
+    exchange: ${RABBITMQ_CMD_EXCHANGE:cmd.direct}
+    # Alertas internas publicadas por ms-campuslab-catalog (CatalogEventPublisher:
+    # cmd.topic / email.stock-agotado) que tambien se envian por email.
+    topic-exchange:
+      name: ${RABBITMQ_TOPIC_EXCHANGE:cmd.topic}
+      email-routing-pattern: email.*
+    dead-letter-exchange: ${RABBITMQ_DLX:cmd.dlx}
+    queues:
+      email:
+        name: q.cmd.email
+        routing-key: email.send
+        dlq: q.cmd.email.dlq
+      prep:
+        name: q.cmd.prep
+        routing-key: prep.ticket
+        dlq: q.cmd.prep.dlq
+      voucher:
+        name: q.cmd.voucher
+        routing-key: voucher.gen
+        dlq: q.cmd.voucher.dlq
+
 management:
   endpoints:
     web:

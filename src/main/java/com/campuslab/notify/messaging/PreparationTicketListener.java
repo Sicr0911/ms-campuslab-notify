@@ -1,5 +1,6 @@
 package com.campuslab.notify.messaging;
 
+import com.campuslab.notify.config.NotifyRabbitProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Consume q.cmd.prep: ticket de preparacion de sala/equipo para el
@@ -22,13 +24,16 @@ public class PreparationTicketListener {
 
     private final ObjectMapper objectMapper;
     private final ProcessedEventTracker processedEventTracker;
+    private final NotifyRabbitProperties.QueueDef cola;
 
-    public PreparationTicketListener(ObjectMapper notifyObjectMapper, ProcessedEventTracker processedEventTracker) {
+    public PreparationTicketListener(ObjectMapper notifyObjectMapper, ProcessedEventTracker processedEventTracker,
+                                     NotifyRabbitProperties props) {
         this.objectMapper = notifyObjectMapper;
         this.processedEventTracker = processedEventTracker;
+        this.cola = props.queues().prep();
     }
 
-    @RabbitListener(queues = "q.cmd.prep")
+    @RabbitListener(queues = "${campuslab.rabbitmq.queues.prep.name}")
     public void onMessage(Message message, Channel channel, @Header("amqp_deliveryTag") long deliveryTag) throws IOException {
         try {
             EventEnvelope envelope = objectMapper.readValue(message.getBody(), EventEnvelope.class);
@@ -44,7 +49,10 @@ public class PreparationTicketListener {
 
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
-            log.error("Error procesando mensaje de q.cmd.prep, se envia a la DLQ.", ex);
+            log.error("Fallo al procesar mensaje de {} (deliveryTag={}, redelivered={}); se rechaza sin reencolar "
+                            + "y queda en la DLQ {}. Cuerpo: {}",
+                    cola.name(), deliveryTag, message.getMessageProperties().getRedelivered(), cola.dlq(),
+                    new String(message.getBody(), StandardCharsets.UTF_8), ex);
             channel.basicNack(deliveryTag, false, false);
         }
     }

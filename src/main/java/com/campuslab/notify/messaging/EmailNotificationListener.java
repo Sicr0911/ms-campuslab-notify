@@ -1,5 +1,6 @@
 package com.campuslab.notify.messaging;
 
+import com.campuslab.notify.config.NotifyRabbitProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Consume q.cmd.email: notificaciones al estudiante por email/push
@@ -27,13 +29,16 @@ public class EmailNotificationListener {
 
     private final ObjectMapper objectMapper;
     private final ProcessedEventTracker processedEventTracker;
+    private final NotifyRabbitProperties.QueueDef cola;
 
-    public EmailNotificationListener(ObjectMapper notifyObjectMapper, ProcessedEventTracker processedEventTracker) {
+    public EmailNotificationListener(ObjectMapper notifyObjectMapper, ProcessedEventTracker processedEventTracker,
+                                     NotifyRabbitProperties props) {
         this.objectMapper = notifyObjectMapper;
         this.processedEventTracker = processedEventTracker;
+        this.cola = props.queues().email();
     }
 
-    @RabbitListener(queues = "q.cmd.email")
+    @RabbitListener(queues = "${campuslab.rabbitmq.queues.email.name}")
     public void onMessage(Message message, Channel channel, @Header("amqp_deliveryTag") long deliveryTag) throws IOException {
         try {
             EventEnvelope envelope = objectMapper.readValue(message.getBody(), EventEnvelope.class);
@@ -49,10 +54,13 @@ public class EmailNotificationListener {
 
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
-            // requeue=false: el mensaje va a q.cmd.email.dlq (configurada via
-            // x-dead-letter-exchange en definitions.json) en vez de
+            // requeue=false: el broker reenruta el mensaje a q.cmd.email.dlq
+            // (x-dead-letter-exchange declarado en RabbitMqConfig) en vez de
             // reintentarse infinitamente contra el mismo error.
-            log.error("Error procesando mensaje de q.cmd.email, se envia a la DLQ.", ex);
+            log.error("Fallo al procesar mensaje de {} (deliveryTag={}, redelivered={}); se rechaza sin reencolar "
+                            + "y queda en la DLQ {}. Cuerpo: {}",
+                    cola.name(), deliveryTag, message.getMessageProperties().getRedelivered(), cola.dlq(),
+                    new String(message.getBody(), StandardCharsets.UTF_8), ex);
             channel.basicNack(deliveryTag, false, false);
         }
     }
